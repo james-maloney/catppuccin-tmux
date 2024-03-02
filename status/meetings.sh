@@ -13,8 +13,8 @@ show_meetings() {
   echo "$module"
 }
 
-ALERT_IF_IN_NEXT_MINUTES=10
-ALERT_POPUP_BEFORE_SECONDS=10
+ALERT_IF_IN_NEXT_MINUTES=30
+ALERT_POPUP_BEFORE_SECONDS=30
 NERD_FONT_FREE="󱁕"
 NERD_FONT_MEETING="󰤙"
 
@@ -75,18 +75,39 @@ get_next_next_meeting() {
 		eventsFrom:"${end_timestamp}" to:"${tonight}")
 }
 
+# parse_result() {
+# 	array=()
+# 	for line in $1; do
+# 		array+=("$line")
+# 	done
+# 	time="${array[2]} ${array[3]}"
+# 	end_time="${array[4]} ${array[5]}"
+# 	title="${array[*]:5:30}"
+# }
+
 parse_result() {
-	array=()
-	for line in $1; do
-		array+=("$line")
-	done
-	time="${array[2]}"
-	end_time="${array[4]}"
-	title="${array[*]:5:30}"
+    IFS=$'\n' # Set Internal Field Separator to newline to read lines
+    local input="$1"
+    local -a lines=() # Declare an array to hold lines
+    local line
+
+    # Read lines from input
+    while IFS= read -r line; do
+        lines+=("$line")
+    done <<< "$input"
+
+
+  # TODO make a better parser
+
+    local time_range="${lines[3]}" # Assuming the time range is on the third line
+    title="${lines[4]}" # Assuming the title is on the fourth line, indented
+
+    time=$(echo "$time_range" | awk -F' - ' '{print $1}')
+    end_time=$(echo "$time_range" | awk -F' - ' '{print $2}')
 }
 
 calculate_times(){
-	epoc_meeting=$(date -j -f "%T" "$time:00" +%s)
+  epoc_meeting=$(date -j -f "%Y-%m-%d %H:%M %p" "$(date +%Y-%m-%d) $time" +%s)
 	epoc_now=$(date +%s)
 	epoc_diff=$((epoc_meeting - epoc_now))
 	minutes_till_meeting=$((epoc_diff/60))
@@ -131,11 +152,10 @@ main() {
 	get_next_meeting
 	parse_result "$next_meeting"
 	calculate_times
-	if [[ "$next_meeting" != "" && $number_of_attendees -lt 2 ]]; then
-		get_next_next_meeting
-		parse_result "$next_next_meeting"
-		calculate_times
-	fi
-	print_tmux_status
-	# echo "$minutes_till_meeting | $number_of_attendees"
+  print_tmux_status
+	# if [[ "$next_meeting" != "" && $number_of_attendees -lt 2 ]]; then
+	# 	get_next_next_meeting
+	# 	parse_result "$next_next_meeting"
+	# 	calculate_times
+	# fi
 }
